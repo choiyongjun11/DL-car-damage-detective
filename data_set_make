@@ -1,0 +1,91 @@
+#estimate 데이터에는 차량/제조사/모델/수리비가 들어있음
+#image 데이터에는 차량 손상 사진이 들어있음
+#labels 데이터에는 차량 image에 맞는 height나 width가 들어있음
+#총 1개의 estimate data와 n개의 image, labels 데이터가 있음
+#아래 코드는 estimate { image+labels 매칭 셋 1} {image+labels 매칭 셋 ... n} 개를 모아두는 코드
+
+  
+import os
+import json
+
+# ✅ 사용자 경로 설정
+image_dir = r"C:\Users\82102\Desktop\3-1\딥러닝\코딩\data\뉴아반떼XD 4Dr\scratched\2022-03-08\images"      # 예: r"C:\Users\82102\Desktop\images"
+label_dir = r"C:\Users\82102\Desktop\3-1\딥러닝\코딩\data\뉴아반떼XD 4Dr\scratched\2022-03-08\labels"      # 예: r"C:\Users\82102\Desktop\labels"
+estimate_dir = r"C:\Users\82102\Desktop\3-1\딥러닝\코딩\data\뉴아반떼XD 4Dr\scratched\2022-03-08\estimates"   # 예: r"C:\Users\82102\Desktop\estimates"
+output_json_path = r"C:\Users\82102\Desktop\3-1\딥러닝\코딩\data\뉴아반떼XD 4Dr\scratched\2022-03-08\combined_data.json"  # 저장할 경로 지정
+
+
+combined_data = {}
+
+# ✅ estimate 기준으로 묶기
+for est_file in os.listdir(estimate_dir):
+    if not est_file.endswith(".json"):
+        continue
+
+    car_id = est_file.replace(".json", "")
+    est_path = os.path.join(estimate_dir, est_file)
+
+    try:
+        with open(est_path, encoding='utf-8') as f:
+            est_json = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] {est_file} 읽기 실패:", e)
+        continue
+
+    차량정보 = est_json.get("차량정보", {})
+
+    image_set = []
+
+    # ✅ label + image 매칭
+    for label_file in os.listdir(label_dir):
+        if car_id not in label_file or not label_file.endswith(".json"):
+            continue
+
+        label_path = os.path.join(label_dir, label_file)
+        image_filename = label_file.replace(".json", ".jpg")
+        image_path = os.path.join(image_dir, image_filename)
+
+        if not os.path.exists(image_path):
+            continue
+
+        try:
+            with open(label_path, encoding='utf-8') as f:
+                label_json = json.load(f)
+        except:
+            continue
+
+        image_set.append({
+            "label_filename": label_file,
+            "image_filename": image_filename,
+            "label_data": label_json,
+        })
+
+    if image_set:
+        combined_data[est_file] = {
+            "estimate_전체정보": est_json,           # 🔸 전체 estimate JSON 추가 저장
+            "이미지_세트": image_set
+        }
+
+# ✅ 전체 출력 (생략 없이 보기)
+print("\n========================= 전체 매칭 데이터셋 =========================\n")
+for est_file, info in combined_data.items():
+    print(f"[Estimate 파일] {est_file}")
+    print("- 전체 estimate 데이터:")
+    print(json.dumps(info["estimate_전체정보"], indent=2, ensure_ascii=False))
+    print("- 이미지_세트 (총", len(info["이미지_세트"]), "개):")
+
+    for i, item in enumerate(info["이미지_세트"], start=1):
+        print(f"\n  {i}) 이미지 파일: {item['image_filename']}")
+        print(f"     라벨 파일: {item['label_filename']}")
+        print(f"     ▶ 라벨 데이터:")
+        print(json.dumps(item["label_data"], indent=2, ensure_ascii=False))
+    print("="*70)
+
+# ✅ JSON 파일로 저장
+try:
+    with open(output_json_path, 'w', encoding='utf-8') as f:
+        json.dump(combined_data, f, ensure_ascii=False, indent=2)
+    print(f"\n✅ JSON 파일로 저장 완료: {output_json_path}")
+
+except Exception as e:
+    print(f"❌ 저장 실패: {e}")
