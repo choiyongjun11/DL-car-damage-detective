@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>차량 파손 이미지 분석 시스템</title>
+  <!-- Cropper.js 스타일 -->
+  <link
+    href="https://unpkg.com/cropperjs@1.5.13/dist/cropper.min.css"
+    rel="stylesheet"
+  >
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-bottom: 10px; }
+    p { margin-bottom: 20px; }
+    img { max-width: 100%; display: block; }
+    #preview { max-width: 500px; margin-top: 10px; border: 1px solid #ccc; }
+    #controls { margin-top: 10px; }
+    #controls button {
+      padding: 10px 15px;
+      margin-right: 10px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    #controls button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #message { margin-top: 15px; color: #d00; }
+  </style>
+</head>
+<body>
+  <h2>차량 파손 이미지 분석 시스템</h2>
+  <p>여러 장의 이미지를 선택하고, 분석할 부분만 순차적으로 크롭한 뒤 전송하세요.</p>
+
+  <input type="file" id="imageInput" accept="image/*" multiple><br>
+  <img id="preview" style="display:none;">
+  <div id="controls" style="display:none;">
+    <button id="cropButton" disabled>🖼 현재 이미지 크롭</button>
+    <button id="nextButton" disabled>➞ 다음 이미지</button>
+    <button id="submitButton" disabled>📤 분석 제출</button>
+  </div>
+  <div id="message"></div>
+
+  <!-- Cropper.js UMD 번들 -->
+  <script src="https://unpkg.com/cropperjs@1.5.13/dist/cropper.min.js"></script>
+  <script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const inputEl   = document.getElementById('imageInput');
+    const preview   = document.getElementById('preview');
+    const controls  = document.getElementById('controls');
+    const cropBtn   = document.getElementById('cropButton');
+    const nextBtn   = document.getElementById('nextButton');
+    const submitBtn = document.getElementById('submitButton');
+    const msg       = document.getElementById('message');
+
+    let cropper, files = [], index = 0, cropped = [];
+
+    // 1) 파일 선택
+    inputEl.addEventListener('change', e => {
+      files = Array.from(e.target.files);
+      index = 0;
+      cropped = [];
+      msg.textContent = '';
+      if (files.length > 0) {
+        showImage(files[0]);
+      }
+    });
+
+    // 2) 이미지 표시 + Cropper 초기화
+    function showImage(file) {
+      cropBtn.disabled = nextBtn.disabled = submitBtn.disabled = true;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        preview.onload = () => {
+          if (cropper) cropper.destroy();
+          cropper = new Cropper(preview, { viewMode: 1 });
+          cropBtn.disabled = nextBtn.disabled = submitBtn.disabled = false;
+        };
+        preview.src = evt.target.result;
+        preview.style.display = 'block';
+        controls.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 3) 현재 이미지 크롭 → Blob 저장
+    function cropCurrent() {
+      return new Promise((resolve, reject) => {
+        if (!cropper) {
+          msg.textContent = '⚠️ Cropper 준비 중입니다.';
+          return reject();
+        }
+        cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(blob => {
+          if (!blob) {
+            msg.textContent = '⚠️ 크롭 실패. 다시 시도하세요.';
+            return reject();
+          }
+          cropped.push({ blob, name: files[index].name });
+          resolve();
+        });
+      });
+    }
+
+    // 버튼 이벤트
+    cropBtn.addEventListener('click', async () => {
+      await cropCurrent();
+      msg.textContent = `✅ ${files[index].name} 크롭 완료`;
+    });
+
+    nextBtn.addEventListener('click', async () => {
+      await cropCurrent();
+      // 다음 파일이 있으면 표시, 없으면 next만 비활성
+      if (index + 1 < files.length) {
+        index++;
+        showImage(files[index]);
+        msg.textContent = '';
+      } else {
+        nextBtn.disabled = true;
+        msg.textContent = '✅ 모든 이미지 크롭 완료. “분석 제출” 버튼을 눌러주세요.';
+      }
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      // 마지막 이미지도 크롭
+      if (index < files.length) {
+        await cropCurrent();
+      }
+      if (cropped.length === 0) {
+        msg.textContent = '⚠️ 크롭된 이미지가 없습니다.';
+        return;
+      }
+
+      // — 동적 form 생성 & 파일 첨부 —
+      const dynForm = document.createElement('form');
+      dynForm.method = 'POST';
+      dynForm.action = '/analyze';
+      dynForm.enctype = 'multipart/form-data';
+
+      cropped.forEach(item => {
+        const dt = new DataTransfer();
+        dt.items.add(new File([item.blob], item.name, { type: 'image/png' }));
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.name = 'cropped_images';
+        fileInput.files = dt.files;
+        dynForm.appendChild(fileInput);
+      });
+
+      document.body.appendChild(dynForm);
+      dynForm.submit();
+    });
+  });
+  </script>
+</body>
+</html>

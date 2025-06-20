@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>분석 결과</title>
+  <style>/* 기존 스타일 그대로 */</style>
+</head>
+<body>
+  <h2>🔍 분석 결과</h2>
+
+  {% if results %}
+    {% for r in results %}
+      <div class="result">
+        <div><span class="label">파일명:</span> {{ r.original }}</div>
+        <div>
+          <span class="label">ResNet50:</span>
+          {{ r.resnet_part }} / {{ r.resnet_damage }}
+        </div>
+        <div>
+          <span class="label">YOLO8:</span>
+          {{ r.yolo_label }} (신뢰도 {{ r.yolo_conf }})
+        </div>
+        <img src="{{ url_for('static', filename='results/' + r.result_img) }}" alt="결과 이미지">
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>분석된 이미지가 없습니다.</p>
+  {% endif %}
+
+  <a href="/">⬅ 다시 분석하기</a>
+</body>
+</html>
