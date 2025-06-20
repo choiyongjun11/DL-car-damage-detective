@@ -1,10 +1,7 @@
-## 1. `requirements.txt`
-```text
-Flask>=2.0
-torch>=1.12
-torchvision>=0.13
-ultralytics>=8.0
+Flask
+torch
+torchvision
+ultralytics
 opencv-python
 Pillow
 cropperjs
-``` 
