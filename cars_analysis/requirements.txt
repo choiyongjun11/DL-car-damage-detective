@@ -1,7 +1,7 @@
-Flask
-torch
-torchvision
-ultralytics
+Flask>=2.0
+torch>=1.12
+torchvision>=0.13
+ultralytics>=8.0
 opencv-python
 Pillow
-cropperjs
+#cropperjs npm install cropperjs 로 진행
